@@ -3,4 +3,6 @@ src/introspect.py
 src/transfer2.py
 src/transfer_new.py
 src/transfer.py
+src/.tmp*
+
 test_flow/definition.json
