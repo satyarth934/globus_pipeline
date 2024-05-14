@@ -10,63 +10,61 @@ from functools import partial
 import matplotlib.pyplot as plt
 
 import argparse
-import logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    handlers=[logging.StreamHandler(sys.stdout)],
-    format="%(asctime)s [%(levelname)s] File %(module)s: line %(lineno)d: %(message)s",
-    force=True,
+import util
+import util_constants as c
+
+# logging.basicConfig(
+#     level=logging.INFO,
+#     handlers=[logging.StreamHandler(sys.stdout)],
+#     format="%(asctime)s [%(levelname)s] File %(module)s: line %(lineno)d: %(message)s",
+#     force=True,
+# )
+
+# # Defining logger
+# rnp_logger = logging.getLogger(__name__)
+# rnp_logger.setLevel(logging.INFO)
+import logging
+import logger_config
+rnp_logger = logger_config.setup_logging(
+    module_name=__name__,
+    # level=logging.INFO,
+    level=logging.DEBUG,
+    logfile_dir=c.LOGFILE_DIR,
 )
 
-# Defining logger
-rnp_logger = logging.getLogger(__name__)
-rnp_logger.setLevel(logging.INFO)
-
-TMP_PROCESSED_FILEPATHS = ".tmp_processed_filepaths"
 
 
-def parse_args():
-    rnp_logger.info("Entering parse_args()")
 
-    parser = argparse.ArgumentParser(
-        "Process FITS Files",
-        fromfile_prefix_chars="@",  # helps read the arguments from a file.
-    )
+# def parse_args():
+#     rnp_logger.info("Entering parse_args()")
 
-    requiredNamed = parser.add_argument_group("required named arguments")
+#     parser = argparse.ArgumentParser(
+#         "Process FITS Files",
+#         fromfile_prefix_chars="@",  # helps read the arguments from a file.
+#     )
 
-    requiredNamed.add_argument(
-        "-i",
-        "--input_files",
-        type=str,
-        help="Path to the file containing list of FITS input filepaths.",
-        required=True,
-    )
+#     requiredNamed = parser.add_argument_group("required named arguments")
 
-    requiredNamed.add_argument(
-        "-o",
-        "--output_dir",
-        type=str,
-        help="Path to the directory where the processed output will be stored.",
-        required=True,
-    )
+#     requiredNamed.add_argument(
+#         "-i",
+#         "--input_files",
+#         type=str,
+#         help="Path to the file containing list of FITS input filepaths.",
+#         required=True,
+#     )
 
-    args, unknown = parser.parse_known_args()
+#     requiredNamed.add_argument(
+#         "-o",
+#         "--output_dir",
+#         type=str,
+#         help="Path to the directory where the processed output will be stored.",
+#         required=True,
+#     )
 
-    return args
+#     args, unknown = parser.parse_known_args()
 
-
-def delete_file(filepath, success_msg=None, failure_msg=None):
-    try:
-        os.remove(filepath)
-        rnp_logger.info(f"The file {filepath} has been deleted successfully. {success_msg}")
-    except FileNotFoundError:
-        rnp_logger.info(f"The file {filepath} does not exist. {failure_msg}")
-    except PermissionError:
-        rnp_logger.info(f"Permission denied: unable to delete {filepath}. {failure_msg}")
-    except Exception as e:
-        rnp_logger.info(f"Error occurred: {e}. {failure_msg}")
+#     return args
 
 
 # Process each FITS file
@@ -168,51 +166,62 @@ def process_fits_file(
     
     # Process each FITS file
     # -------------------------------------------------
-    # Create a lock object
-    lock = threading.Lock()    # Needed fo concurrent write to TMP_PROCESSED_FILEPATHS
-    delete_file(TMP_PROCESSED_FILEPATHS, success_msg="Preparing for the run...")
-    with open(TMP_PROCESSED_FILEPATHS, 'a') as tpf_fh:
-        # # Process each FITS file in a loop
-        # for fits_file in tqdm(fits_files, desc="Processing FITS File"):
-        #     _process_fits_file(
-        #         fits_file=fits_file,
-        #         output_dir=output_dir,
-        #     )
+    try:
+        # Create a flag file to mark that compute is in progress
+        util.touch(path=c.COMPUTE_FLAG_FILE)
 
-        # Process each FITS file in parallel
-        _process_fits_file_partialfunc = partial(
-            _process_fits_file, 
-            output_dir=output_dir, 
-            plot_dir=plot_dir,
-            log_processed_filehandler=tpf_fh,
-            log_processed_concurrency_lock=lock,
-        )
+        # Create a lock object
+        lock = threading.Lock()    # Needed for concurrent write to TMP_PROCESSED_FILEPATHS_FILE
+        util.delete_file(c.TMP_PROCESSED_FILEPATHS_FILE, success_msg="Preparing for the run...")
+        with open(c.TMP_PROCESSED_FILEPATHS_FILE, 'a') as tpf_fh:
+            # # Process each FITS file in a loop
+            # for fits_file in tqdm(fits_files, desc="Processing FITS File"):
+            #     _process_fits_file(
+            #         fits_file=fits_file,
+            #         output_dir=output_dir,
+            #     )
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            executor.map(
-                _process_fits_file_partialfunc, 
-                fits_files,
+            # Process each FITS file in parallel
+            _process_fits_file_partialfunc = partial(
+                _process_fits_file, 
+                output_dir=output_dir, 
+                plot_dir=plot_dir,
+                log_processed_filehandler=tpf_fh,
+                log_processed_concurrency_lock=lock,
             )
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                executor.map(
+                    _process_fits_file_partialfunc, 
+                    fits_files,
+                )
+
+    except Exception as e:
+        raise e
+    finally:
+        util.delete_file(c.COMPUTE_FLAG_FILE)
+        rnp_logger.debug("Deleted the compute flag file.")
+    
     
     rnp_logger.info("Exiting process_fits_file()")
 
 
-def main():
-    args = parse_args()
+# def main():
+#     args = parse_args()
 
-    # Define the directory path where the FITS files are located
-    # fits_dir = "/global/cfs/projectdirs/m2845/pipe"
-    # input_dir = "/global/cfs/cdirs/m2845/satyarth/globus_proj/data/processing_src"
-    # output_dir = "/global/cfs/cdirs/m2845/satyarth/globus_proj/data/processing_dest"
-    # plot_dir = "/global/cfs/cdirs/m2845/satyarth/globus_proj/data/plots"
+#     # Define the directory path where the FITS files are located
+#     # fits_dir = "/global/cfs/projectdirs/m2845/pipe"
+#     # input_dir = "/global/cfs/cdirs/m2845/satyarth/globus_proj/data/processing_src"
+#     # output_dir = "/global/cfs/cdirs/m2845/satyarth/globus_proj/data/processing_dest"
+#     # plot_dir = "/global/cfs/cdirs/m2845/satyarth/globus_proj/data/plots"
 
-    process_fits_file(
-        # input_dir=input_dir, 
-        input_files_file=args.input_files, 
-        output_dir=args.output_dir, 
-        plot_dir=None,
-    )
+#     process_fits_file(
+#         # input_dir=input_dir, 
+#         input_files_file=args.input_files, 
+#         output_dir=args.output_dir, 
+#         plot_dir=None,
+#     )
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
