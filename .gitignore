@@ -4,5 +4,13 @@ src/transfer2.py
 src/transfer_new.py
 src/transfer.py
 src/.tmp*
+src/.last*
+src/.curr*
+
+src/archive
+src/logs
+src/__pycache__
 
 test_flow/definition.json
+
+
