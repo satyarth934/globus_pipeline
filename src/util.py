@@ -1,4 +1,5 @@
 import os
+import time
 
 import util_constants as c
 
@@ -18,9 +19,15 @@ def touch(path):
         os.utime(path, None)
 
 
-def delete_file(filepath, success_msg=None, failure_msg=None):
+def delete_file(
+        filepath, 
+        success_msg="", 
+        failure_msg="",
+        sleep_time=2,
+):
     try:
         os.remove(filepath)
+        time.sleep(sleep_time)
         util_logger.info(f"The file {filepath} has been deleted successfully. {success_msg}")
 
     except FileNotFoundError as fnfe:
@@ -31,3 +38,15 @@ def delete_file(filepath, success_msg=None, failure_msg=None):
 
     except Exception as e:
         util_logger.error(f"Error occurred: {e}. {failure_msg}")
+
+
+def update_last_state(state):
+    with open(c.LAST_STATE_RECORD_FILE, "w") as lsrf:
+        lsrf.write(state)
+    util_logger.info(f"Last state updated successfully!")
+
+
+def update_last_taskid(taskid):
+    with open(c.LAST_TASKID_RECORD_FILE, "w") as ltrf:
+        ltrf.write(taskid)
+    util_logger.info(f"Last taskid updated successfully!")
