@@ -1,15 +1,16 @@
 import os
 import sys
 import time
+from tqdm import tqdm
 
-import arg_parser
 import util
-import util_constants as c
-import authentication as auth
+import transfer
+import arg_parser
 import importing as imp
 import computing as cmp
 import exporting as exp
-import transfer as tfr
+import util_constants as c
+import authentication as auth
 # import read_n_process_fits as rnp_fits
 
 import logging
@@ -75,24 +76,25 @@ def main():
             prev_task_id = None
 
         # Run import
-        # imp_result = imp.import_data(
-        #     src_endpoint_uuid=args.src_collection_uuid,
-        #     dst_endpoint_uuid=args.compute_collection_uuid,
-        #     src_path=args.src_collection_path,
-        #     dst_path=args.compute_collection_src_path,
-        #     authorizer=authorizer,
-        #     prev_task_id=prev_task_id,
-        # )
-
-        imp_result = tfr.transfer_data(
+        imp_result = imp.import_data(
             src_endpoint_uuid=args.src_collection_uuid,
             dst_endpoint_uuid=args.compute_collection_uuid,
             src_path=args.src_collection_path,
             dst_path=args.compute_collection_src_path,
             authorizer=authorizer,
             prev_task_id=prev_task_id,
-            label="Importing data to process in compute collection.",
+            label="Importing data in compute collection to process",
         )
+
+        # imp_result = transfer.transfer_data(
+        #     src_endpoint_uuid=args.src_collection_uuid,
+        #     dst_endpoint_uuid=args.compute_collection_uuid,
+        #     src_path=args.src_collection_path,
+        #     dst_path=args.compute_collection_src_path,
+        #     authorizer=authorizer,
+        #     prev_task_id=prev_task_id,
+        #     label="Importing data to process in compute collection.",
+        # )
     
     elif curr_state == c.STATES.COMPUTE:
         # TODO - Check if transfer is complete (use last state process task ID)
@@ -117,33 +119,41 @@ def main():
         main_logger.debug("Deleting the input files in compute src")
         with open(c.TMP_INPUT_FILEPATHS_FILE, 'r') as fh:
             input_files = fh.readlines()
-            for input_file in input_files:
-                util.delete_file(input_file)
+            for input_file in tqdm(input_files, desc="Temp storage inp files"):
+                util.delete_file(input_file.strip(), sleep_time=0)
 
         # Update .last_state
-        main_logger.info(f"Updating the last state!")
-        with open(c.LAST_STATE_RECORD_FILE, "w") as lsrf:
-            lsrf.write(c.STATES.COMPUTE)
+        util.update_last_state(c.STATES.COMPUTE)
 
         # Delete .last_taskid
-        util.delete_file(".last_taskid")
+        util.delete_file(c.LAST_TASKID_RECORD_FILE)
 
     
     elif (curr_state == c.STATES.EXPORT):
-        # Check if compute is still running
-        if os.path.exists(c.COMPUTE_FLAG_FILE):
-            main_logger.debug("Terminating the process to wait for compute process to finish.")
-            sys.exit("Waiting for compute process to complete!")
+        # # Check if compute is still running
+        # if os.path.exists(c.COMPUTE_FLAG_FILE):
+        #     main_logger.debug("Terminating the process to wait for compute process to finish.")
+        #     sys.exit("Waiting for compute process to complete!")
 
         # Run export
-        exp_result = tfr.transfer_data(
-            src_endpoint_uuid=args.src_collection_uuid,
-            dst_endpoint_uuid=args.compute_collection_uuid,
-            src_path=args.src_collection_path,
-            dst_path=args.compute_collection_src_path,
+        # exp_result = transfer.transfer_data(
+        #     src_endpoint_uuid=args.src_collection_uuid,
+        #     dst_endpoint_uuid=args.compute_collection_uuid,
+        #     src_path=args.src_collection_path,
+        #     dst_path=args.compute_collection_src_path,
+        #     authorizer=authorizer,
+        #     delete_source_on_successful_transfer=True,
+        #     label="Export and Delete compute output from compute storage"
+        # )
+        exp_result = exp.export_data(
+            src_endpoint_uuid=args.compute_collection_uuid,
+            dst_endpoint_uuid=args.dst_collection_uuid,
+            src_path=args.compute_collection_dst_path,
+            dst_path=args.dst_collection_path,
             authorizer=authorizer,
+            check_prev_task=True,
             delete_source_on_successful_transfer=True,
-            label="Export and Delete compute output from compute storage"
+            label="Exporting processed data to destination collection",
         )
     
     else:
