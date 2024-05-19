@@ -172,7 +172,12 @@ def process_fits_file(
 
         # Create a lock object
         lock = threading.Lock()    # Needed for concurrent write to TMP_PROCESSED_FILEPATHS_FILE
-        util.delete_file(c.TMP_PROCESSED_FILEPATHS_FILE, success_msg="Preparing for the run...")
+        util.delete_file(
+            c.TMP_PROCESSED_FILEPATHS_FILE, 
+            success_msg="Preparing for the run...",
+            sleep_time=2,
+        )
+        rnp_logger.debug("Starting parallel compute")
         with open(c.TMP_PROCESSED_FILEPATHS_FILE, 'a') as tpf_fh:
             # # Process each FITS file in a loop
             # for fits_file in tqdm(fits_files, desc="Processing FITS File"):
@@ -199,7 +204,7 @@ def process_fits_file(
     except Exception as e:
         raise e
     finally:
-        util.delete_file(c.COMPUTE_FLAG_FILE)
+        util.delete_file(c.COMPUTE_FLAG_FILE, sleep_time=2)
         rnp_logger.debug("Deleted the compute flag file.")
     
     
