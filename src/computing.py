@@ -1,7 +1,7 @@
 import os
 import sys
 
-import transfer as tfr
+import transfer
 import util_constants as c
 import read_n_process_fits as rnp_fits
 
@@ -40,28 +40,24 @@ def compute_data(
 ):
     # Check if the previous process has completed
     # -------------------------------------------------
-    prev_task_details = tfr.get_task_stats(
-        prev_task_id,
-        authorizer=authorizer,
-    )
+    if prev_task_id is not None:
+        prev_task_details = transfer.get_task_stats(
+            prev_task_id,
+            authorizer=authorizer,
+        )
     
-    cmp_logger.info(f"Prev Task ID: {prev_task_id} has status: {prev_task_details['status']}")
-    cmp_logger.info(f"Prev Task details: {prev_task_details}")
+        cmp_logger.info(f"Prev Task ID: {prev_task_id} has status: {prev_task_details['status']}")
+        cmp_logger.debug(f"Prev Task details: {prev_task_details}")
 
-    if prev_task_details['status'] == 'ACTIVE':
-        # close the program and wait for the next cronjob call hoping that the function would be completed by then.
-        msg = f"Prev Task is still ACTIVE. Terminating the current run to wait for previous process to complete."
-        cmp_logger.warning(msg)
-        sys.exit(msg)
-        
-    elif prev_task_details['status'] == 'SUCCEEDED':
-        # continue with the program.
-        pass
-    elif prev_task_details['status'] == 'FAILED':
-        # TODO - Run the previous task again. (modify the flags to initiate the previous run again.)
-        # TODO - Check what flags to modify.
-        # TODO - Maybe just terminating the program is good enough since no flags files are updated yet.
-        pass
+        if prev_task_details['status'] in ['ACTIVE', 'FAILED']:
+            # close the program and wait for the next cronjob call hoping that the function would be completed by then.
+            msg = f"Prev Task is still ACTIVE. Terminating the current run to wait for previous process to complete."
+            cmp_logger.warning(msg)
+            sys.exit(msg)
+            
+        elif prev_task_details['status'] in ['SUCCEEDED', 'NULL']:
+            # continue with the program.
+            pass
 
     # Prepare input
     # -------------------------------------------------
