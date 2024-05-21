@@ -30,24 +30,13 @@ def main():
 
     # Get the last state of the program
     # -------------------------------------------------
-    if os.path.exists(c.LAST_STATE_RECORD_FILE):
-        with open(c.LAST_STATE_RECORD_FILE, "r") as lsrf:
-            last_state = lsrf.read().strip()
-    else:
-        last_state = None
+    last_state = util.get_last_state()
     main_logger.debug(f"{last_state = }")
 
 
     # Get current state
     # -------------------------------------------------
-    if (last_state is None) or (last_state == c.STATES.EXPORT):
-        curr_state = c.STATES.IMPORT
-    elif last_state == c.STATES.IMPORT:
-        curr_state = c.STATES.COMPUTE
-    elif last_state == c.STATES.COMPUTE:
-        curr_state = c.STATES.EXPORT
-    else:
-        raise ValueError("Unknown 'last_state'!!!")
+    curr_state = util.get_current_state(last_state=last_state)
     main_logger.debug(f"{curr_state = }")
 
 
@@ -68,94 +57,136 @@ def main():
     # Run stages based on the last state
     # -------------------------------------------------
     if curr_state == c.STATES.IMPORT:
-        # Get previous task ID (previous state can be Export)
-        if os.path.exists(c.LAST_TASKID_RECORD_FILE):
-            with open(c.LAST_TASKID_RECORD_FILE, 'r') as fh:
-                prev_task_id = fh.read().strip()
-        else:
-            prev_task_id = None
+        # Get previous task ID (previous state can be None or Export_cleanup)
+        prev_task_id = util.get_prev_taskid()
 
         # Run import
-        imp_result = imp.import_data(
-            src_endpoint_uuid=args.src_collection_uuid,
-            dst_endpoint_uuid=args.compute_collection_uuid,
-            src_path=args.src_collection_path,
-            dst_path=args.compute_collection_src_path,
-            authorizer=authorizer,
-            prev_task_id=prev_task_id,
-            label="Importing data in compute collection to process",
-        )
+        try:
+            imp_result = imp.import_data(
+                src_endpoint_uuid=args.src_collection_uuid,
+                dst_endpoint_uuid=args.compute_collection_uuid,
+                src_path=args.src_collection_path,
+                dst_path=args.compute_collection_src_path,
+                authorizer=authorizer,
+                prev_task_id=prev_task_id,
+                exclude_previously_imported=True,
+                label="Importing data in compute collection to process",
+            )
 
-        # imp_result = transfer.transfer_data(
-        #     src_endpoint_uuid=args.src_collection_uuid,
-        #     dst_endpoint_uuid=args.compute_collection_uuid,
-        #     src_path=args.src_collection_path,
-        #     dst_path=args.compute_collection_src_path,
-        #     authorizer=authorizer,
-        #     prev_task_id=prev_task_id,
-        #     label="Importing data to process in compute collection.",
-        # )
-    
+            if imp_result is None:    # No file IMPORTed. Terminate process.
+                log_msg = f"No new files to transfer! Terminating the process."
+                main_logger.info(log_msg)
+                sys.exit(log_msg)
+            else:
+                log_msg = f"Transfer Task submitted! Task ID: {imp_result['task_id']}"
+                main_logger.info(log_msg)
+
+            # Updating the .last_state file
+            util.update_last_state(c.STATES.IMPORT)
+
+            # Updating the .last_task_id file
+            if imp_result:
+                util.update_last_taskid(imp_result['task_id'])
+
+        except Exception as e:
+            raise e
+
+    # -----------------
     elif curr_state == c.STATES.COMPUTE:
-        # TODO - Check if transfer is complete (use last state process task ID)
         # Get previous task ID (previous state would be Import)
-        if os.path.exists(c.LAST_TASKID_RECORD_FILE):
-            with open(c.LAST_TASKID_RECORD_FILE, 'r') as fh:
-                prev_task_id = fh.read().strip()
-        else:
-            prev_task_id = None
+        prev_task_id = util.get_prev_taskid()
         
         # Run compute
-        cmp_results = cmp.compute_data(
-            input_dir=args.compute_collection_src_path,
-            output_dir=args.compute_collection_dst_path,
-            prev_task_id=prev_task_id,
-            authorizer=authorizer,
-        )
+        try:
+            cmp.compute_data(
+                input_dir=args.compute_collection_src_path,
+                output_dir=args.compute_collection_dst_path,
+                prev_task_id=prev_task_id,
+                authorizer=authorizer,
+            )
 
-        # Delete the compute input files
-        # cat `c.TMP_INPUT_FILEPATHS_FILE` | xargs rm
-        # TODO - Will need to optimize this
-        main_logger.debug("Deleting the input files in compute src")
-        with open(c.TMP_INPUT_FILEPATHS_FILE, 'r') as fh:
-            input_files = fh.readlines()
-            for input_file in tqdm(input_files, desc="Temp storage inp files"):
-                util.delete_file(input_file.strip(), sleep_time=0)
+            # Delete the compute input files
+            # # cat `c.TMP_INPUT_FILEPATHS_FILE` | xargs rm
+            # # TODO - Optimize this
+            # main_logger.debug("Deleting the input files in compute src")
+            # with open(c.TMP_INPUT_FILEPATHS_FILE, 'r') as fh:
+            #     input_files = fh.readlines()
+            #     for input_file in tqdm(input_files, desc="Temp storage inp files"):
+            #         util.delete_file(input_file.strip(), sleep_time=0)
 
-        # Update .last_state
-        util.update_last_state(c.STATES.COMPUTE)
+            # # Dump processed files to the record file
+            # if os.path.exists(c.TMP_PROCESSED_FILEPATHS_FILE):
+            #     util.dump_tmpfile_to_record(
+            #         src_file=c.TMP_PROCESSED_FILEPATHS_FILE,
+            #         dst_file=c.ALL_PROCESSED_FILEPATHS_FILE,
+            #     )
+            cmp.delete_tmp_input_files(record_processesd_files=True)
 
-        # Delete .last_taskid
-        util.delete_file(c.LAST_TASKID_RECORD_FILE)
+            # Update .last_state
+            util.update_last_state(c.STATES.COMPUTE)
 
-    
+            # Delete .last_taskid
+            util.delete_file(c.LAST_TASKID_RECORD_FILE)
+        
+        except Exception as e:
+            raise e
+
+    # -----------------
     elif (curr_state == c.STATES.EXPORT):
-        # # Check if compute is still running
-        # if os.path.exists(c.COMPUTE_FLAG_FILE):
-        #     main_logger.debug("Terminating the process to wait for compute process to finish.")
-        #     sys.exit("Waiting for compute process to complete!")
-
         # Run export
-        # exp_result = transfer.transfer_data(
-        #     src_endpoint_uuid=args.src_collection_uuid,
-        #     dst_endpoint_uuid=args.compute_collection_uuid,
-        #     src_path=args.src_collection_path,
-        #     dst_path=args.compute_collection_src_path,
-        #     authorizer=authorizer,
-        #     delete_source_on_successful_transfer=True,
-        #     label="Export and Delete compute output from compute storage"
-        # )
-        exp_result = exp.export_data(
-            src_endpoint_uuid=args.compute_collection_uuid,
-            dst_endpoint_uuid=args.dst_collection_uuid,
-            src_path=args.compute_collection_dst_path,
-            dst_path=args.dst_collection_path,
-            authorizer=authorizer,
-            check_prev_task=True,
-            delete_source_on_successful_transfer=True,
-            label="Exporting processed data to destination collection",
-        )
-    
+        try:
+            exp_result = exp.export_data(
+                src_endpoint_uuid=args.compute_collection_uuid,
+                dst_endpoint_uuid=args.dst_collection_uuid,
+                src_path=args.compute_collection_dst_path,
+                dst_path=args.dst_collection_path,
+                authorizer=authorizer,
+                check_prev_task=True,
+                label="Exporting processed data to destination collection",
+            )
+
+            if exp_result is None:
+                log_msg = "No new files to export. Terminating process!"
+                main_logger.info(log_msg)
+                sys.exit(log_msg)
+            else:
+                log_msg = f"Transfer Task submitted! Task ID: {exp_result['task_id']}"
+                main_logger.info(log_msg)
+
+            # Updating the .last_state file
+            util.update_last_state(c.STATES.EXPORT)
+
+            # Updating the .last_task_id file
+            if exp_result:
+                util.update_last_taskid(exp_result['task_id'])
+        
+        except Exception as e:
+            raise e
+
+    # -----------------
+    elif (curr_state == c.STATES.EXPORT_CLEANUP):
+        # Get previous task ID (previous state can be Export)
+        prev_task_id = util.get_prev_taskid()
+
+        # Remove the tmp processed files after the export process has completed
+        try:
+            main_logger.warning("Assuming that the src_path for export exists on the same machine as the compute machine!")
+            exp.export_cleanup(
+                dir_path=args.compute_collection_dst_path,
+                authorizer=authorizer,
+                prev_task_id=prev_task_id,
+            )
+
+            # Updating the .last_state file
+            util.update_last_state(c.STATES.EXPORT_CLEANUP)
+
+            # Updating the .last_task_id file
+            util.delete_file(c.LAST_TASKID_RECORD_FILE)
+        
+        except Exception as e:
+            raise e
+
+    # -----------------
     else:
         main_logger.debug("Unknown last state!!!")
         raise ValueError("Unknown last state!")
