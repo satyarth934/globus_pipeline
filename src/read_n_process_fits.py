@@ -158,55 +158,58 @@ def process_fits_file(
 
     rnp_logger.info(f"Number of input files: {len(fits_files)}")
 
-    # Create the output directory if it doesn't exist
-    os.makedirs(output_dir, exist_ok=True)
+    if len(fits_files) > 0:
+        # Create the output directory if it doesn't exist
+        os.makedirs(output_dir, exist_ok=True)
 
-    if plot_dir:
-        os.makedirs(plot_dir, exist_ok=True)
-    
-    # Process each FITS file
-    # -------------------------------------------------
-    try:
-        # Create a flag file to mark that compute is in progress
-        util.touch(path=c.COMPUTE_FLAG_FILE)
+        if plot_dir:
+            os.makedirs(plot_dir, exist_ok=True)
+        
+        # Process each FITS file
+        # -------------------------------------------------
+        try:
+            # Create a flag file to mark that compute is in progress
+            util.touch(path=c.COMPUTE_FLAG_FILE)
 
-        # Create a lock object
-        lock = threading.Lock()    # Needed for concurrent write to TMP_PROCESSED_FILEPATHS_FILE
-        util.delete_file(
-            c.TMP_PROCESSED_FILEPATHS_FILE, 
-            success_msg="Preparing for the run...",
-            sleep_time=2,
-        )
-        rnp_logger.debug("Starting parallel compute")
-        with open(c.TMP_PROCESSED_FILEPATHS_FILE, 'a') as tpf_fh:
-            # # Process each FITS file in a loop
-            # for fits_file in tqdm(fits_files, desc="Processing FITS File"):
-            #     _process_fits_file(
-            #         fits_file=fits_file,
-            #         output_dir=output_dir,
-            #     )
-
-            # Process each FITS file in parallel
-            _process_fits_file_partialfunc = partial(
-                _process_fits_file, 
-                output_dir=output_dir, 
-                plot_dir=plot_dir,
-                log_processed_filehandler=tpf_fh,
-                log_processed_concurrency_lock=lock,
+            # Create a lock object
+            lock = threading.Lock()    # Needed for concurrent write to TMP_PROCESSED_FILEPATHS_FILE
+            util.delete_file(
+                c.TMP_PROCESSED_FILEPATHS_FILE, 
+                success_msg="Preparing for the run...",
+                sleep_time=2,
             )
+            rnp_logger.debug("Starting parallel compute")
+            with open(c.TMP_PROCESSED_FILEPATHS_FILE, 'a') as tpf_fh:
+                # # Process each FITS file in a loop
+                # for fits_file in tqdm(fits_files, desc="Processing FITS File"):
+                #     _process_fits_file(
+                #         fits_file=fits_file,
+                #         output_dir=output_dir,
+                #     )
 
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                executor.map(
-                    _process_fits_file_partialfunc, 
-                    fits_files,
+                # Process each FITS file in parallel
+                _process_fits_file_partialfunc = partial(
+                    _process_fits_file, 
+                    output_dir=output_dir, 
+                    plot_dir=plot_dir,
+                    log_processed_filehandler=tpf_fh,
+                    log_processed_concurrency_lock=lock,
                 )
 
-    except Exception as e:
-        raise e
-    finally:
-        util.delete_file(c.COMPUTE_FLAG_FILE, sleep_time=2)
-        rnp_logger.debug("Deleted the compute flag file.")
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    executor.map(
+                        _process_fits_file_partialfunc, 
+                        fits_files,
+                    )
+
+        except Exception as e:
+            raise e
+        finally:
+            util.delete_file(c.COMPUTE_FLAG_FILE, sleep_time=2)
+            rnp_logger.debug("Deleted the compute flag file.")
     
+    else:
+        rnp_logger.info(f"No new file to process! Terminating the task.")
     
     rnp_logger.info("Exiting process_fits_file()")
 
