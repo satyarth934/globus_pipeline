@@ -105,22 +105,44 @@ def get_authentication_token(
 
 def get_authorizer(token):
     authorizer = globus_sdk.AccessTokenAuthorizer(token)
+    
+    auth_logger.debug("Returning AccessTokenAuthorizer!")
     return authorizer
 
 
 def get_refresh_authorizer(
         client_id,
         access_token_info,
+        on_refresh_call=None,
 ):
-    # client_id = 'your_client_id'
-    refresh_token = access_token_info['refresh_token']
+    """
+    Returns a RefreshTokenAuthorizer object that can be used for authentication.
+
+    Args:
+        client_id (str): The client ID for the NativeAppAuthClient.
+        access_token_info (dict): A dictionary containing the access token information.
+            This dictionary should include the 'refresh_token', 'expires_at_seconds', and
+                'access_token' keys.
+        on_refresh_call (callable, optional): A callback which is triggered any time this authorizer fetches a new access_token. The on_refresh callable is invoked on the OAuthTokenResponse object resulting from the token being refreshed. It should take only one argument, the token response object. This is useful for implementing storage for Access Tokens, as the on_refresh callback can be used to update the Access Tokens and their expiration times. Defaults to None.
+
+    Returns:
+        globus_sdk.RefreshTokenAuthorizer: The RefreshTokenAuthorizer object.
+
+    """
 
     # Create a NativeAppAuthClient instance
     auth_client = globus_sdk.NativeAppAuthClient(client_id=client_id)
 
     # Use the RefreshTokenAuthorizer to automatically handle refreshing
-    authorizer = globus_sdk.RefreshTokenAuthorizer(refresh_token, auth_client)
+    authorizer = globus_sdk.RefreshTokenAuthorizer(
+        refresh_token=access_token_info['refresh_token'], 
+        auth_client=auth_client,
+        access_token=access_token_info['access_token'],
+        expires_at=access_token_info['expires_at_seconds'],
+        on_refresh=on_refresh_call,
+    )
 
+    auth_logger.debug("Returning RefreshTokenAuthorizer!")
     return authorizer
 
 
@@ -134,6 +156,8 @@ def store_token_to_cache(
     #     "token": token['access_token'],
     #     "expires_at": time.time() + token['expires_in'],
     # }
+
+    auth_logger.debug("Storing token to cache!")
 
     # Dump the token dictionary to a JSON file
     with open(token_cache_filepath, "w") as file:
@@ -179,9 +203,14 @@ def authenticate(
         store_token_to_cache(token=token_info)
     
     try:
-        authorizer = get_authorizer(token=token_info["access_token"])
+        # authorizer = get_authorizer(token=token_info["access_token"])
+        authorizer = get_refresh_authorizer(
+            client_id=client_id,
+            access_token_info=token_info,
+            on_refresh_call=store_token_to_cache,
+        )
+        
         auth_logger.debug("Authentication successful!")
-
         return authorizer
     
     except Exception as e:
