@@ -6,6 +6,7 @@ src/transfer_demo.py
 src/.tmp*
 src/.last*
 src/.curr*
+src/.all_processed_filepaths
 
 src/archive
 src/logs
