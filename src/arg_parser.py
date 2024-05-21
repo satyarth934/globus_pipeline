@@ -10,7 +10,6 @@ argp_logger = logger_config.setup_logging(
     # level=logging.INFO,
     level=logging.DEBUG,
     logfile_dir=c.LOGFILE_DIR,
-    main_module=True,
 )
 
 
