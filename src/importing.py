@@ -1,3 +1,4 @@
+import os
 import sys
 import globus_sdk
 
@@ -94,7 +95,7 @@ def import_data(
         dst_path,
         authorizer,
         prev_task_id=None,
-        delete_source_on_successful_transfer=False,
+        exclude_previously_imported=True,
         label=None,
 ):
     imp_logger.info("Initiating import transfer...")
@@ -123,6 +124,20 @@ def import_data(
         elif prev_task_details['status'] == 'SUCCEEDED':
             # continue with the program.
             pass
+    
+    # Exclude previously imported files
+    # -------------------------------------------------
+    if exclude_previously_imported and \
+        os.path.exists(c.ALL_PROCESSED_FILEPATHS_FILE):
+        
+        with open(c.ALL_PROCESSED_FILEPATHS_FILE, 'r') as fh:
+            exclude_files = fh.readlines()
+        exclude_files = [os.path.basename(f.strip()) for f in exclude_files]
+    else:
+        exclude_files = None
+
+    imp_logger.debug(f"len(exclude_files) = {len(exclude_files) if exclude_files else 0}")
+    # imp_logger.debug(f"{exclude_files = }")
 
     # Transferring data
     # -------------------------------------------------
@@ -132,20 +147,8 @@ def import_data(
         src_path=src_path,
         dst_path=dst_path,
         transfer_client=transfer_client,
-        delete_source_on_successful_transfer=delete_source_on_successful_transfer,
+        exclude_files=exclude_files,
         label=label,
     )
-
-    # Updating the .last_state file
-    # with open(c.LAST_STATE_RECORD_FILE, "w") as lsrf:
-    #     lsrf.write(c.STATES.IMPORT)
-    util.update_last_state(c.STATES.IMPORT)
-    # transfer_logger.info(f"Last state updated!")
-
-    # Updating the .last_task_id file
-    # with open(c.LAST_TASKID_RECORD_FILE, "w") as ltrf:
-    #     ltrf.write(transfer_result['task_id'])
-    util.update_last_taskid(imp_result['task_id'])
-    # transfer_logger.info(f"Last task ID updated!")
 
     return imp_result
