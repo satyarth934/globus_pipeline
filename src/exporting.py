@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import globus_sdk
 from tqdm import tqdm
 
@@ -74,26 +75,79 @@ def export_cleanup(
     # Check previous task status
     # -------------------------------------------------
     if prev_task_id is not None:
-        # Initializing TransferClient
-        transfer_client = globus_sdk.TransferClient(authorizer=authorizer)
+        # # Initializing TransferClient
+        # transfer_client = globus_sdk.TransferClient(authorizer=authorizer)
 
         # prev_task_details = transfer_client.get_task(prev_task_id)
         prev_task_details = transfer.get_task_stats(
             task_id=prev_task_id, 
-            transfer_client=transfer_client,
+            authorizer=authorizer,
+            # transfer_client=transfer_client,
         )
         exp_logger.info(f"Prev Task ID: {prev_task_id} has status: {prev_task_details['status']}")
         exp_logger.info(f"Prev Task details: {prev_task_details}")
 
-        if prev_task_details['status'] in ['ACTIVE', 'FAILED']:
-            # close the program and wait for the next cronjob call hoping that the function would be completed by then.
-            msg = f"Prev Task is still ACTIVE. Terminating the current run to wait for previous process to complete."
+        if prev_task_details['status'] == 'ACTIVE':
+
+            if prev_task_details['faults'] <= c.TASK_MAX_FAULTS: 
+                msg = f"Prev Task is still ACTIVE. Terminating the current run to wait for previous process to complete."
+                exp_logger.warning(msg)
+                sys.exit(msg)
+            
+            else:    # task faults > MAX_FAULTS
+                ctask_result = transfer.cancel_transfer(
+                    task_id=prev_task_id,
+                    authorizer=authorizer,
+                )
+
+                # Waiting to ensure cancellation task is processed. URL below mentions that it can take upto 10 seconds.
+                # https://docs.globus.org/api/transfer/task/#cancel_task_by_id
+                time.sleep(10)
+
+                if ctask_result is None:
+                    msg = "Could not even cancel the task! What good as we?? *facepalm*"
+                    exp_logger.warning(msg)
+                    sys.exit(msg)
+
+                elif ctask_result['code'] in [
+                    c.TASK_CANCEL_STATUS.CANCELED, 
+                    c.TASK_CANCEL_STATUS.TASKCOMPLETE,
+                ]:
+                    # update last_state
+                    util.update_last_state(c.STATES.EXPORT_CANCELLED)
+
+                    # update last_taskid
+                    # util.update_last_taskid(taskid=ctask_result['task_id'])
+                    util.delete_file(c.LAST_TASKID_RECORD_FILE)
+                
+                else:
+                    exp_logger.debug("Unidentified task cancellation issue!!! Check ctask_result and its return code.")
+                    raise Exception("Unidentified task cancellation issue!!!")
+        
+        elif prev_task_details['status'] == 'FAILED':
+            # FUTURE TODO - might need better handling
+
+            # close the program and wait for the next cronjob call hoping that the code will execute in the next run.
+            msg = f"Prev Task has FAILED. Terminating the current run to wait for previous process to complete successfully."
             exp_logger.warning(msg)
             sys.exit(msg)
-            
+
         elif prev_task_details['status'] == 'SUCCEEDED':
             # continue with the program.
+            exp_logger.debug("Prev task was successful")
             pass
+
+
+
+        # if prev_task_details['status'] in ['ACTIVE', 'FAILED']:
+        #     # close the program and wait for the next cronjob call hoping that the function would be completed by then.
+        #     msg = f"Prev Task is still ACTIVE. Terminating the current run to wait for previous process to complete."
+        #     exp_logger.warning(msg)
+        #     sys.exit(msg)
+            
+        # elif prev_task_details['status'] == 'SUCCEEDED':
+        #     # continue with the program.
+        #     pass
     
     # Delete the processed files in compute destination
     # -------------------------------------------------
