@@ -87,7 +87,7 @@ def transfer_data(
                 endpoint_id=src_endpoint_uuid,
                 path=src_path,
             )
-            transfer_files = [ls_entry for ls_entry in ls_data if ls_entry['name'] not in exclude_files]    # TODO - optimize this using set difference
+            transfer_files = [ls_entry['name'] for ls_entry in ls_data if ls_entry['name'] not in exclude_files]    # TODO - optimize this using set difference
             transfer_logger.info(f"Number of files to transfer: {len(transfer_files)}")
             transfer_logger.debug(f"{transfer_files = }")
 
@@ -120,3 +120,30 @@ def transfer_data(
     return transfer_result
 
 
+def cancel_transfer(
+        task_id,
+        authorizer=None,
+        transfer_client=None,
+):
+    # Exception Handling
+    # -------------------------------------------------
+    if authorizer is None and transfer_client is None:
+        raise ValueError(
+            "At least one of `authorizer` or `transfer_client` must be defined.\
+            `transfer_client` takes precedence if both are defined."
+        )
+
+    transfer_logger.info(f"Initiating task cancellation for Task ID = {task_id}...")
+
+    if transfer_client is None:
+        transfer_client = globus_sdk.TransferClient(authorizer=authorizer)
+    
+    try:
+        ctask_result = transfer_client.cancel_task(task_id)
+    
+    except Exception as e:
+        transfer_logger.debug(f"Ran into exception while requesting Task Cancellation - {e}")
+        ctask_result = None    # FUTURE TODO (for gracefully handling exception)
+        raise e
+
+    return ctask_result
