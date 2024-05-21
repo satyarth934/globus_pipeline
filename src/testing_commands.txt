@@ -2,7 +2,7 @@
 To watch data directories and the files within them.
 Run in the `data` directory.
 # -------------------------------------------------
-watch -n1 'tree -I "outputs|plots" '
+watch -n1 'tree -I "outputs|plots|tmp_storage" '
 
 
 # -------------------------------------------------
