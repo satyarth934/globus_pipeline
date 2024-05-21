@@ -116,6 +116,10 @@ def get_prev_taskid():
     if os.path.exists(c.LAST_TASKID_RECORD_FILE):
         with open(c.LAST_TASKID_RECORD_FILE, 'r') as fh:
             prev_task_id = fh.read().strip()
+        
+        if prev_task_id == "":
+            prev_task_id = None
+            
     else:
         prev_task_id = None
     
