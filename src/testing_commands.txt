@@ -1,0 +1,12 @@
+# -------------------------------------------------
+To watch data directories and the files within them.
+Run in the `data` directory.
+# -------------------------------------------------
+watch -n1 'tree -I "outputs|plots" '
+
+
+# -------------------------------------------------
+To watch the flag and record files and their contents
+Run in the `src` directory.
+# -------------------------------------------------
+watch -n1 'echo -e "\n-----------"; date; echo -e "-----------\n"; for file in .last_state .last_taskid .tmp_input_filepaths .tmp_processed_filepaths .all_processed_filepaths; do echo "<$file>"; cat "$file"; echo -e "\n---\n"; done'
