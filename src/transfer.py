@@ -126,7 +126,8 @@ def transfer_data(
     dst_path,
     authorizer=None,
     transfer_client=None,
-    delete_source_on_successful_transfer=False,
+    exclude_pattern=None,
+    exclude_files=None,
     label=None,
 ):
     # Exception Handling
@@ -151,17 +152,49 @@ def transfer_data(
             label=label,
         )
 
-        transfer_data.add_item(src_path, dst_path)
+        if exclude_pattern:
+            # Transfer all files in the src_path directory except the ones that match the exclude_pattern
 
-        # # Enable deletion of source files after a successful transfer
-        # if delete_source_on_successful_transfer:
-        #     transfer_logger.warning("CAUTION: Files are the source will be deleted after the transfer is complete!")
-        #     transfer_data['preserve_timestamp'] = False
-        #     transfer_data['delete_source_on_successful_transfer'] = True    # TODO - facing issues. KeyError
+            transfer_logger.info("Transferring pattern-filtered files...")
+            transfer_data.add_filter_rule(
+                name=exclude_pattern,
+                method="exclude",
+                type="file",
+            )
+            transfer_data.add_item(src_path, dst_path)
 
-        transfer_result = transfer_client.submit_transfer(transfer_data)
+        elif exclude_files:
+            # Transfer all files in the src_path directory except the ones in exclude_files
+            transfer_logger.info("Transferring files not in exclude list...")
+            ls_data = transfer_client.operation_ls(
+                endpoint_id=src_endpoint_uuid,
+                path=src_path,
+            )
+            transfer_files = [ls_entry for ls_entry in ls_data if ls_entry['name'] not in exclude_files]    # TODO - optimize this using set difference
+            transfer_logger.info(f"Number of files to transfer: {len(transfer_files)}")
+            transfer_logger.debug(f"{transfer_files = }")
 
-        transfer_logger.info(f"Transfer Task submitted! Task ID: {transfer_result['task_id']}")
+            for transfer_file in transfer_files:
+                src_file_path = f"{src_path}/{transfer_file}"
+                transfer_logger.debug(f"{src_file_path = }")
+                
+                dst_file_path = f"{dst_path}/{transfer_file}"
+                transfer_logger.debug(f"{dst_file_path = }")
+
+                transfer_data.add_item(src_file_path, dst_file_path)
+
+        else:
+            # Transfer all files in the src_path directory
+            transfer_logger.info("Transferring all files at src...")
+            transfer_data.add_item(src_path, dst_path)
+
+        # Submitting the transfer task (if needed)
+        if len(transfer_data['DATA']) > 0:
+            transfer_result = transfer_client.submit_transfer(transfer_data)
+            transfer_logger.debug(f"Transfer Task submitted! Task ID: {transfer_result['task_id']}")
+        else:
+            transfer_result = None
+            transfer_logger.debug(f"No new files to transfer! Terminating the process.")
 
     except Exception as e:
         transfer_logger.debug(f"Ran into exception - {e}")
