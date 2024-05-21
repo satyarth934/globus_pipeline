@@ -1,7 +1,9 @@
 import os
 import sys
+from tqdm import tqdm
 
 import transfer
+import util
 import util_constants as c
 import read_n_process_fits as rnp_fits
 
@@ -62,13 +64,7 @@ def compute_data(
     # Prepare input
     # -------------------------------------------------
     cmp_logger.info("Preparing data for compute...")
-    prepare_input(input_dir=input_dir)
-    
-    # Define the directory path where the FITS files are located
-    # fits_dir = "/global/cfs/projectdirs/m2845/pipe"
-    # input_dir = "/global/cfs/cdirs/m2845/satyarth/globus_proj/data/processing_src"
-    # output_dir = "/global/cfs/cdirs/m2845/satyarth/globus_proj/data/processing_dest"
-    # plot_dir = "/global/cfs/cdirs/m2845/satyarth/globus_proj/data/plots"
+    prepare_input(input_dir=input_dir)    # Lists inputs in TMP_INPUT_FILEPATHS_FILE
 
     # Run compute
     # -------------------------------------------------
@@ -79,3 +75,37 @@ def compute_data(
         output_dir=output_dir, 
         plot_dir=None,
     )
+
+
+def record_processed_files():
+    if os.path.exists(c.TMP_PROCESSED_FILEPATHS_FILE):
+        util.dump_tmpfile_to_record(
+            src_file=c.TMP_PROCESSED_FILEPATHS_FILE,
+            dst_file=c.ALL_PROCESSED_FILEPATHS_FILE,
+        )
+
+
+def delete_tmp_input_files(record_processesd_files=True):
+    # cat `c.TMP_INPUT_FILEPATHS_FILE` | xargs rm
+    # TODO - Optimize this
+    cmp_logger.debug("Deleting the input files in compute src")
+    with open(c.TMP_INPUT_FILEPATHS_FILE, 'r') as fh:
+        input_files = fh.readlines()
+        for input_file in tqdm(input_files, desc="Deleting tmp storage input files"):
+            util.delete_file(input_file.strip(), sleep_time=0)
+
+    # Dump processed files to the record file
+    if record_processesd_files:
+        record_processed_files()
+
+
+def get_processed_filepaths():
+    if os.path.exists(c.TMP_PROCESSED_FILEPATHS_FILE):
+        with open(c.TMP_PROCESSED_FILEPATHS_FILE, 'r') as pfp_fh:
+            processed_files = pfp_fh.readlines()
+
+        processed_files = [f.strip() for f in processed_files]
+    else:
+        processed_files = list()
+
+    return processed_files
