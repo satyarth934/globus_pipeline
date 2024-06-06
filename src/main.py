@@ -43,13 +43,14 @@ def main():
     # Authenticate
     # -------------------------------------------------
     authorizer = auth.authenticate(
+    # authorizer = auth.authenticate_from_encoded_token_info(
         # args,
         client_id=args.client_id,
-        uuids=[
-            args.src_collection_uuid,
-            args.compute_collection_uuid,
-            args.dst_collection_uuid,
-        ],
+        # uuids=[
+        #     args.src_collection_uuid,
+        #     args.compute_collection_uuid,
+        #     args.dst_collection_uuid,
+        # ],
         # force_new_token=True,
     )
 
