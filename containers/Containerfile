@@ -51,16 +51,7 @@ WORKDIR /globus_pipeline/src
 # COPY processing_test_1/process.py $PROCESSING_SRC_DIR
 
 # Script to process files and handle outputs using Bash commands
-# CMD ["echo", "Container working!!!"]
-# CMD ["python3", "main.py", "@main.cfg"]
-# CMD bash -c "\
-# echo 'Starting processing...'; \
-# python3 main.py @main.cfg; \
-# echo 'Processing completed.' \
-# "
 
-# CMD bash -c "\
-# echo 'Container working!';\
-# which python3;\
-# python3 --version;\
-# "
+
+# Put this command in the SPIN UI to run the program
+# `python3 main.py @$ARGS_CONFIG_FILE`
