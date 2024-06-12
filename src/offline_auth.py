@@ -4,6 +4,7 @@ import base64
 import arg_parser
 import util_constants as c
 import authentication as auth
+import authentication_util as auth_util
 # import read_n_process_fits as rnp_fits
 
 import logging
@@ -36,9 +37,11 @@ def main():
 
     token_info = auth.get_authentication_token(client_id=args.client_id, uuids=uuids)
 
+    auth.store_token_to_cache(token=token_info)    # Storing original
+
     # Store encoded token to file
-    encoded_token_info = auth.encode_dict(token_info)
-    store_to_file(data=encoded_token_info, file=c.OFFAUTH_TOKEN_FILE)
+    encoded_token_info = auth_util.encode_dict(token_info)
+    store_to_file(data=encoded_token_info, file=c.OFFAUTH_TOKEN_FILE)    # storing encoded
     offauth_logger.info(f"Encoded token info saved to {c.OFFAUTH_TOKEN_FILE}")
     
     # Print the on stdout
