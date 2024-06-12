@@ -81,6 +81,13 @@ def parse_args():
         required=True,
     )
 
+    requiredNamed.add_argument(
+        "--file_type",
+        type=str,
+        help="Type of file that is to be processed. Currently only supports FITS and HDF5 files.",
+        required=True,
+    )
+
     args, unknown = parser.parse_known_args()
 
     return args

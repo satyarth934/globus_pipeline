@@ -7,6 +7,7 @@ import transfer
 import util
 import util_constants as c
 import read_n_process_fits as rnp_fits
+import read_n_process_hdf5 as rnp_hdf5
 
 import logging
 import logger_config
@@ -21,11 +22,11 @@ cmp_logger = logger_config.setup_logging(
 # Preparing data
 # ls .../processing_src/*.fits > c.TMP_INPUT_FILEPATHS
 # TODO - might need to update this based on the actual number of files
-def prepare_input(input_dir):
+def prepare_input(input_dir, file_type):
     input_files = []
     with os.scandir(input_dir) as entries:
         for entry in entries:
-            if entry.is_file() and entry.name.endswith('.fits'):
+            if entry.is_file() and entry.name.endswith(f'.{file_type}'):
                 input_files.append(entry.path)
 
     with open(c.TMP_INPUT_FILEPATHS_FILE, 'w') as file:
@@ -40,6 +41,7 @@ def compute_data(
         output_dir,
         prev_task_id=None,
         authorizer=None,
+        file_type=None,
 ):
     # Check if the previous process has completed
     # -------------------------------------------------
@@ -117,17 +119,27 @@ def compute_data(
     # Prepare input
     # -------------------------------------------------
     cmp_logger.info("Preparing data for compute...")
-    prepare_input(input_dir=input_dir)    # Lists inputs in TMP_INPUT_FILEPATHS_FILE
+    prepare_input(input_dir=input_dir, file_type=file_type)    # Lists inputs in TMP_INPUT_FILEPATHS_FILE
 
     # Run compute
     # -------------------------------------------------
     cmp_logger.info("Initiating compute...")
-    rnp_fits.process_fits_file(
-        # input_dir=input_dir, 
-        input_files_file=c.TMP_INPUT_FILEPATHS_FILE, 
-        output_dir=output_dir, 
-        plot_dir=None,
-    )
+
+    if file_type == 'fits':
+        rnp_fits.process_fits_file(
+            # input_dir=input_dir, 
+            input_files_file=c.TMP_INPUT_FILEPATHS_FILE, 
+            output_dir=output_dir, 
+            plot_dir=None,
+        )
+    elif file_type == 'hdf5':
+        rnp_hdf5.process_hdf5_file(
+            input_files_file=c.TMP_INPUT_FILEPATHS_FILE,
+            output_dir=output_dir,
+            plot_dir=None,
+        )
+    else:
+        raise ValueError("Invalid `file_type` for compute! Can only handle FITS and HDF5 files at the moment!!")
 
 
 def record_processed_files():

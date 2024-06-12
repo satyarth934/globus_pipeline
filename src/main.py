@@ -104,6 +104,7 @@ def main():
                 output_dir=args.compute_collection_dst_path,
                 prev_task_id=prev_task_id,
                 authorizer=authorizer,
+                file_type=args.file_type,
             )
 
             # Delete the compute input files
