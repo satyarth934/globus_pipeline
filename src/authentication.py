@@ -257,106 +257,106 @@ def retrieve_token_from_cache(filepath=c.TOKEN_CACHE_PATH):
     return token_dict
 
 
-# Main authentication function
-def authenticate_WORKS(
-# def authenticate(
-        # args,
-        client_id: str,
-        uuids: list,
-        force_new_token: bool=False,
-):
-    auth_logger.info(f"Authenticating...")
+# # Main authentication function
+# def authenticate_WORKS(
+# # def authenticate(
+#         # args,
+#         client_id: str,
+#         uuids: list,
+#         force_new_token: bool=False,
+# ):
+#     auth_logger.info(f"Authenticating...")
 
-    token_info = retrieve_token_from_cache()
-    auth_logger.debug(f"Pulled token from cache.")
+#     token_info = retrieve_token_from_cache()
+#     auth_logger.debug(f"Pulled token from cache.")
 
-    curr_time = time.time()
-    if force_new_token or \
-        (token_info is None) or \
-        (curr_time >= token_info["expires_at_seconds"]):
+#     curr_time = time.time()
+#     if force_new_token or \
+#         (token_info is None) or \
+#         (curr_time >= token_info["expires_at_seconds"]):
 
-        if force_new_token:
-            auth_logger.debug("Force generating new token!")
-        elif token_info is None:
-            auth_logger.debug("No cached token!")
-        elif curr_time >= token_info["expires_at_seconds"]:
-            auth_logger.debug("Cached token expired!")
+#         if force_new_token:
+#             auth_logger.debug("Force generating new token!")
+#         elif token_info is None:
+#             auth_logger.debug("No cached token!")
+#         elif curr_time >= token_info["expires_at_seconds"]:
+#             auth_logger.debug("Cached token expired!")
 
-        token_info = get_authentication_token(client_id=client_id, uuids=uuids)
+#         token_info = get_authentication_token(client_id=client_id, uuids=uuids)
 
-        store_token_to_cache(token=token_info)
+#         store_token_to_cache(token=token_info)
     
-    try:
-        # authorizer = get_authorizer(token=token_info["access_token"])
-        authorizer = get_refresh_authorizer(
-            client_id=client_id,
-            access_token_info=token_info,
-            on_refresh_call=store_token_to_cache,
-        )
+#     try:
+#         # authorizer = get_authorizer(token=token_info["access_token"])
+#         authorizer = get_refresh_authorizer(
+#             client_id=client_id,
+#             access_token_info=token_info,
+#             on_refresh_call=store_token_to_cache,
+#         )
         
-        auth_logger.debug("Authentication successful!")
-        return authorizer
+#         auth_logger.debug("Authentication successful!")
+#         return authorizer
     
-    except Exception as e:
-        # Incase of unknown authentication issue!
-        auth_logger.debug(f"Exception: {e}")
-        raise ValueError("Issue with Authentication!!")
-    
-
-
-
-
-
-
-
-
-# TODO: To be tested!!!!
-def authenticate_from_encoded_token_info(
-        # args,
-        client_id: str,
-):
-    auth_logger.info(f"Authenticating...")
-
-    # if not in container:
-    token_info = auth_util.retrieve_token_info_from_file(
-        filename=c.OFFAUTH_TOKEN_FILE,
-    )
-    auth_logger.debug(f"Pulled token from file.")
-    
-    # # elif in container:
-    # token_info = retrieve_encoded_token_from_secret()
-    # auth_logger.debug(f"Pulled token from file.")
+#     except Exception as e:
+#         # Incase of unknown authentication issue!
+#         auth_logger.debug(f"Exception: {e}")
+#         raise ValueError("Issue with Authentication!!")
     
 
-    curr_time = time.time()
-    if (token_info is None) or \
-        (curr_time >= token_info["expires_at_seconds"]):
 
-        if token_info is None:
-            auth_logger.debug("Pulled token is None!")
-        elif curr_time >= token_info["expires_at_seconds"]:
-            auth_logger.debug("Pulled token is EXPIRED!")
 
-        # token_info = get_authentication_token(client_id=client_id, uuids=uuids)
 
-    # Store token to cache if it is a valid token
-    store_token_to_cache(token=token_info)
+
+
+
+
+# # TODO: To be tested!!!!
+# def authenticate_from_encoded_token_info(
+#         # args,
+#         client_id: str,
+# ):
+#     auth_logger.info(f"Authenticating...")
+
+#     # if not in container:
+#     token_info = auth_util.retrieve_token_info_from_file(
+#         filename=c.OFFAUTH_TOKEN_FILE,
+#     )
+#     auth_logger.debug(f"Pulled token from file.")
     
-    try:
-        # authorizer = get_authorizer(token=token_info["access_token"])
-        authorizer = get_refresh_authorizer(
-            client_id=client_id,
-            access_token_info=token_info,
-            on_refresh_call=store_token_to_cache,
-        )
+#     # # elif in container:
+#     # token_info = retrieve_encoded_token_from_secret()
+#     # auth_logger.debug(f"Pulled token from file.")
+    
+
+#     curr_time = time.time()
+#     if (token_info is None) or \
+#         (curr_time >= token_info["expires_at_seconds"]):
+
+#         if token_info is None:
+#             auth_logger.debug("Pulled token is None!")
+#         elif curr_time >= token_info["expires_at_seconds"]:
+#             auth_logger.debug("Pulled token is EXPIRED!")
+
+#         # token_info = get_authentication_token(client_id=client_id, uuids=uuids)
+
+#     # Store token to cache if it is a valid token
+#     store_token_to_cache(token=token_info)
+    
+#     try:
+#         # authorizer = get_authorizer(token=token_info["access_token"])
+#         authorizer = get_refresh_authorizer(
+#             client_id=client_id,
+#             access_token_info=token_info,
+#             on_refresh_call=store_token_to_cache,
+#         )
         
-        auth_logger.debug("Authentication successful!")
-        return authorizer
+#         auth_logger.debug("Authentication successful!")
+#         return authorizer
     
-    except Exception as e:
-        # Incase of unknown authentication issue!
-        auth_logger.debug(f"Exception: {e}")
-        raise ValueError("Issue with Authentication!!")
+#     except Exception as e:
+#         # Incase of unknown authentication issue!
+#         auth_logger.debug(f"Exception: {e}")
+#         raise ValueError("Issue with Authentication!!")
 
 
 # TODO: To be tested!!!!
