@@ -63,3 +63,18 @@ TASK_CANCEL_STATUS = TaskCancelStatusTuple(
     CANCELED="Canceled",
     TASKCOMPLETE="TaskComplete",
 )
+
+
+# Pipeline Related
+# -------------------------------------------------
+ENV_ARG_KEYS = [
+    "CLIENT_ID",
+    "SRC_COLLECTION_UUID",
+    "SRC_COLLECTION_PATH",
+    "COMPUTE_COLLECTION_UUID",
+    "COMPUTE_COLLECTION_SRC_PATH",
+    "COMPUTE_COLLECTION_DST_PATH",
+    "DST_COLLECTION_UUID",
+    "DST_COLLECTION_PATH",
+    "FILE_TYPE",
+]
