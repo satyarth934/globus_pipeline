@@ -7,11 +7,13 @@ src/.tmp*
 src/.last*
 src/.curr*
 src/.all_processed_filepaths
+src/*.flag
 
 src/archive
 src/logs
 src/__pycache__
 
-test_flow/definition.json
+test_globus_flow/definition.json
 
-
+testing_data/
+slurm_output/
