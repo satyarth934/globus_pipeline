@@ -303,13 +303,6 @@ def retrieve_token_from_cache(filepath=c.TOKEN_CACHE_PATH):
 #         raise ValueError("Issue with Authentication!!")
     
 
-
-
-
-
-
-
-
 # # TODO: To be tested!!!!
 # def authenticate_from_encoded_token_info(
 #         # args,
@@ -363,39 +356,74 @@ def retrieve_token_from_cache(filepath=c.TOKEN_CACHE_PATH):
 def authenticate(client_id: str):
     auth_logger.info(f"Authenticating...")
 
-    # Retrieve token info from cache
-    token_info = retrieve_token_from_cache()
-    auth_logger.debug("" if token_info is None else f"Pulled token from cache.")
-
-    curr_time = time.time()
-    if (token_info is None) or \
-        (curr_time >= token_info["expires_at_seconds"]):
-        # Retrieving token info from encoded data
-        # if not in container:
+    if os.path.exists(c.TOKEN_CACHE_PATH):
+        # Retrieve token info from cache
+        token_info = retrieve_token_from_cache()
+        auth_logger.debug("" if token_info is None else f"Pulled token from cache.")
+    
+    elif os.path.exists(c.OFFAUTH_TOKEN_FILE):
+        # Retrieving token info from locally stored encoded data
         token_info = auth_util.retrieve_token_info_from_file(
             filename=c.OFFAUTH_TOKEN_FILE,
         )
         auth_logger.debug(f"Pulled from encoded token info.")
+    
+    elif os.path.exists(c.SPIN_SECRETS_TOKEN_FILE):
+        # Retrieving token info from spin secrets encoded data
+        token_info = auth_util.retrieve_token_info_from_file(
+            filename=c.SPIN_SECRETS_TOKEN_FILE,
+        )
+        auth_logger.debug(f"Pulled from spin secrets encoded token info.")
+    else:
+        # EXIT Scenario 1
+        auth_logger.error(f"Could not find authentication token-info in cache, offline_authentication file or secrets. Update the token_info value using offline authentication code!!")
+        sys.exit("Update the token_info value using offline authentication code!!")
+
+    # EXIT Scenario 2
+    if token_info is None:
+        auth_logger.debug("Pulled token is None!")
+        auth_logger.error("Pulled token is None!! Update the token_info value using offline authentication code!!")
+        sys.exit("Update the token_info value using offline authentication code!!")
+
+    # EXIT Scenario 3
+    curr_time = time.time()
+    if (curr_time >= token_info["expires_at_seconds"]):
+        auth_logger.debug("Pulled token EXPIRED!")
+        auth_logger.error("Pulled token is EXPIRED!! Update the token_info value using offline authentication code!!")
+        sys.exit("Update the token_info value using offline authentication code!!")
+    
+    # Valid Token Scenarios
+    # -------------------------------------------------
+    store_token_to_cache(token=token_info)
+
+    # if (token_info is None) or \
+    #     (curr_time >= token_info["expires_at_seconds"]):
+    #     # # Retrieving token info from encoded data
+    #     # # if not in container:
+    #     # token_info = auth_util.retrieve_token_info_from_file(
+    #     #     filename=c.OFFAUTH_TOKEN_FILE,
+    #     # )
+    #     # auth_logger.debug(f"Pulled from encoded token info.")
         
-        # # elif in container:
-        # token_info = retrieve_encoded_token_from_secret()
-        # auth_logger.debug(f"Pulled token from file.")
+    #     # # elif in container:
+    #     # token_info = retrieve_encoded_token_from_secret()
+    #     # auth_logger.debug(f"Pulled token from file.")
 
-        # EXIT Senarios - if encoded token is also None or Expired
-        # -------------------------------------------------
-        if token_info is None:
-            auth_logger.debug("Pulled token is None!")
-            auth_logger.error("Pulled token is None!! Update the token_info value using offline authentication code!!")
-            sys.exit("Update the token_info value using offline authentication code!!")
+    #     # # EXIT Senarios - if encoded token is also None or Expired
+    #     # # -------------------------------------------------
+    #     # if token_info is None:
+    #     #     auth_logger.debug("Pulled token is None!")
+    #     #     auth_logger.error("Pulled token is None!! Update the token_info value using offline authentication code!!")
+    #     #     sys.exit("Update the token_info value using offline authentication code!!")
 
-        if (curr_time >= token_info["expires_at_seconds"]):
-            auth_logger.debug("Pulled token EXPIRED!")
-            auth_logger.error("Pulled token is EXPIRED!! Update the token_info value using offline authentication code!!")
-            sys.exit("Update the token_info value using offline authentication code!!")
+    #     if (curr_time >= token_info["expires_at_seconds"]):
+    #         auth_logger.debug("Pulled token EXPIRED!")
+    #         auth_logger.error("Pulled token is EXPIRED!! Update the token_info value using offline authentication code!!")
+    #         sys.exit("Update the token_info value using offline authentication code!!")
 
-        # Valid Token Scenarios
-        # -------------------------------------------------
-        store_token_to_cache(token=token_info)
+    #     # Valid Token Scenarios
+    #     # -------------------------------------------------
+    #     store_token_to_cache(token=token_info)
 
     try:
         # authorizer = get_authorizer(token=token_info["access_token"])

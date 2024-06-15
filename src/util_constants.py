@@ -12,8 +12,8 @@ LAST_STATE_RECORD_FILE = ".last_state"
 LAST_TASKID_RECORD_FILE = ".last_taskid"
 
 TOKEN_CACHE_PATH = ".curr_token.json"
-
 OFFAUTH_TOKEN_FILE = "offauth_token_info.txt"
+SPIN_SECRETS_TOKEN_FILE = "/etc/secrets/token-info"
 
 
 # States
